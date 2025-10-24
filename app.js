@@ -46,36 +46,68 @@ function setupEventListeners() {
     document.getElementById('logoutFromSummaryBtn').addEventListener('click', handleLogout);
 }
 
-// NEW: Fetch data using iframe to bypass CORS
-async function apiCall(endpoint, params = {}, method = 'GET', body = null) {
-    try {
+// JSONP function to bypass CORS
+function apiCall(endpoint, params = {}, method = 'GET', body = null) {
+    return new Promise((resolve, reject) => {
+        // Build URL
         let url = `${API_URL}?action=${endpoint}`;
         
-        // Add GET parameters
-        Object.keys(params).forEach(key => {
-            url += `&${key}=${encodeURIComponent(params[key])}`;
+        // Add parameters
+        const allParams = {...params};
+        if (body) {
+            Object.assign(allParams, body);
+        }
+        
+        Object.keys(allParams).forEach(key => {
+            url += `&${key}=${encodeURIComponent(allParams[key])}`;
         });
         
-        if (method === 'POST') {
-            // For POST, add body as URL params
-            if (body) {
-                Object.keys(body).forEach(key => {
-                    url += `&${key}=${encodeURIComponent(
-                        typeof body[key] === 'object' ? JSON.stringify(body[key]) : body[key]
-                    )}`;
-                });
+        // Generate unique callback name
+        const callbackName = 'jsonp_callback_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        
+        // Add callback parameter
+        url += `&callback=${callbackName}`;
+        
+        console.log('Calling API via JSONP:', url);
+        
+        // Set timeout
+        const timeout = setTimeout(() => {
+            cleanup();
+            reject(new Error('Request timeout'));
+        }, 30000);
+        
+        // Create callback function
+        window[callbackName] = function(data) {
+            clearTimeout(timeout);
+            cleanup();
+            
+            if (data.error) {
+                reject(new Error(data.error));
+            } else {
+                resolve(data);
+            }
+        };
+        
+        // Create script tag
+        const script = document.createElement('script');
+        script.src = url;
+        script.onerror = function() {
+            clearTimeout(timeout);
+            cleanup();
+            reject(new Error('Failed to load script'));
+        };
+        
+        // Cleanup function
+        function cleanup() {
+            delete window[callbackName];
+            if (script.parentNode) {
+                script.parentNode.removeChild(script);
             }
         }
         
-        console.log('Calling API:', url);
-        
-        // Use iframe method to bypass CORS
-        return await fetchViaIframe(url);
-        
-    } catch (error) {
-        console.error('API Error:', error);
-        throw error;
-    }
+        // Add script to page
+        document.head.appendChild(script);
+    });
 }
 
 // Fetch using hidden iframe
