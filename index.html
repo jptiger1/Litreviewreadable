@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Literature Review System</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Login Page -->
+    <div id="loginPage" class="page active">
+        <div class="container">
+            <div class="card login-card">
+                <h1>📚 Literature Review Portal</h1>
+                <p class="subtitle">Transparency Coding - Round 1</p>
+                
+                <div class="form-group">
+                    <label for="reviewerSelect">Select Your Name:</label>
+                    <select id="reviewerSelect" class="input">
+                        <option value="">-- Loading reviewers --</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>Select Your Role:</label>
+                    <div class="radio-group">
+                        <label class="radio-label">
+                            <input type="radio" name="role" value="C1" checked>
+                            <span>Primary Reviewer (C1)</span>
+                        </label>
+                        <label class="radio-label">
+                            <input type="radio" name="role" value="C2">
+                            <span>Secondary Reviewer (C2)</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <button id="startReviewBtn" class="btn btn-primary">Start Review</button>
+                
+                <div id="loginError" class="error-message" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Page -->
+    <div id="reviewPage" class="page">
+        <div class="header">
+            <div class="header-content">
+                <h2>Literature Review</h2>
+                <div class="header-info">
+                    <span id="reviewerInfo"></span>
+                    <button id="viewSummaryBtn" class="btn btn-secondary btn-sm">View Summary</button>
+                    <button id="logoutBtn" class="btn btn-secondary btn-sm">Logout</button>
+                </div>
+            </div>
+            <div class="progress-bar">
+                <div id="progressFill" class="progress-fill"></div>
+            </div>
+            <div class="progress-text" id="progressText"></div>
+        </div>
+
+        <div class="container review-container">
+            <div id="articleCard" class="card article-card">
+                <div id="loadingArticle" class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading articles...</p>
+                </div>
+
+                <div id="noArticles" class="completion-message" style="display: none;">
+                    <div class="completion-icon">✓</div>
+                    <h2>All Done!</h2>
+                    <p>You have reviewed all articles assigned to you.</p>
+                    <button id="viewSummaryFromComplete" class="btn btn-primary">View Summary</button>
+                </div>
+
+                <div id="articleContent" style="display: none;">
+                    <div class="metadata-section">
+                        <h3 id="articleTitle" class="article-title"></h3>
+                        
+                        <div class="metadata-grid">
+                            <div class="metadata-item">
+                                <span class="metadata-label">Authors:</span>
+                                <span id="articleAuthors"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Year:</span>
+                                <span id="articleYear"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Source:</span>
+                                <span id="articleSource"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Publication:</span>
+                                <span id="articlePublication"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">Type:</span>
+                                <span id="articleType"></span>
+                            </div>
+                            <div class="metadata-item">
+                                <span class="metadata-label">DOI:</span>
+                                <span id="articleDOI"></span>
+                            </div>
+                        </div>
+                        
+                        <div class="link-section">
+                            <a id="articleLink" href="#" target="_blank" rel="noopener noreferrer" class="btn btn-link">
+                                🔗 Read Full Text
+                            </a>
+                        </div>
+                    </div>
+
+                    <div class="abstract-section">
+                        <h4>Abstract</h4>
+                        <div id="articleAbstract" class="abstract-text"></div>
+                    </div>
+
+                    <div class="decision-section">
+                        <h4>Your Decision</h4>
+                        
+                        <div class="radio-group decision-radio">
+                            <label class="radio-label">
+                                <input type="radio" name="decision" value="1">
+                                <span class="decision-include">✓ Include - Relevant to study</span>
+                            </label>
+                            <label class="radio-label">
+                                <input type="radio" name="decision" value="0">
+                                <span class="decision-exclude">✗ Exclude - Not relevant</span>
+                            </label>
+                        </div>
+
+                        <div id="reasonSection" class="form-group" style="display: none;">
+                            <label id="reasonLabel">Reason:</label>
+                            <select id="reasonSelect" class="input">
+                                <option value="">-- Select reason --</option>
+                            </select>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="additionalNotes">Additional Notes (optional):</label>
+                            <textarea id="additionalNotes" class="input" rows="3" placeholder="Any additional comments..."></textarea>
+                        </div>
+
+                        <div id="decisionError" class="error-message" style="display: none;"></div>
+
+                        <div class="button-group">
+                            <button id="previousBtn" class="btn btn-secondary" disabled>← Previous</button>
+                            <button id="skipBtn" class="btn btn-secondary">Skip</button>
+                            <button id="saveNextBtn" class="btn btn-primary">Save & Next →</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Summary Page -->
+    <div id="summaryPage" class="page">
+        <div class="header">
+            <div class="header-content">
+                <h2>Review Summary</h2>
+                <div class="header-info">
+                    <span id="summaryReviewerInfo"></span>
+                    <button id="backToReviewBtn" class="btn btn-secondary btn-sm">Back to Review</button>
+                    <button id="logoutFromSummaryBtn" class="btn btn-secondary btn-sm">Logout</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div id="summaryStats" class="stats-grid"></div>
+
+            <div class="card">
+                <h3>Reviewed Articles</h3>
+                <div id="reviewedList" class="article-list"></div>
+            </div>
+
+            <div class="card" id="pendingCard">
+                <h3>Pending Articles</h3>
+                <div id="pendingList" class="article-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
