@@ -1,4 +1,4 @@
-// app.js - UPDATED with iframe method to bypass CORS
+// app.js - Enhanced with loading states and row information
 const API_URL = 'https://script.google.com/macros/s/AKfycbxcJ_7kwV7IYqB7Q_eaeAHGv6l36d3R5q-QM2OmopGgKhgwYbSOpjZvSZaJOJksgskZ9Q/exec';
 
 const state = {
@@ -14,12 +14,26 @@ const REASONS = {
     include: ['Good Article', 'full text coded', 'other']
 };
 
+// Loading overlay functions
+function showLoading(message = 'Loading...') {
+    const overlay = document.getElementById('loadingOverlay');
+    const text = document.getElementById('loadingText');
+    text.textContent = message;
+    overlay.style.display = 'flex';
+}
+
+function hideLoading() {
+    document.getElementById('loadingOverlay').style.display = 'none';
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initializeApp();
 });
 
 async function initializeApp() {
+    showLoading('Loading reviewers...');
     await loadReviewers();
+    hideLoading();
     setupEventListeners();
     
     const savedReviewer = localStorage.getItem('reviewer');
@@ -46,13 +60,11 @@ function setupEventListeners() {
     document.getElementById('logoutFromSummaryBtn').addEventListener('click', handleLogout);
 }
 
-// JSONP function to bypass CORS
+// JSONP API call function
 function apiCall(endpoint, params = {}, method = 'GET', body = null) {
     return new Promise((resolve, reject) => {
-        // Build URL
         let url = `${API_URL}?action=${endpoint}`;
         
-        // Add parameters
         const allParams = {...params};
         if (body) {
             Object.assign(allParams, body);
@@ -62,21 +74,14 @@ function apiCall(endpoint, params = {}, method = 'GET', body = null) {
             url += `&${key}=${encodeURIComponent(allParams[key])}`;
         });
         
-        // Generate unique callback name
         const callbackName = 'jsonp_callback_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-        
-        // Add callback parameter
         url += `&callback=${callbackName}`;
         
-        console.log('Calling API via JSONP:', url);
-        
-        // Set timeout
         const timeout = setTimeout(() => {
             cleanup();
-            reject(new Error('Request timeout'));
+            reject(new Error('Request timeout - Please check your connection'));
         }, 30000);
         
-        // Create callback function
         window[callbackName] = function(data) {
             clearTimeout(timeout);
             cleanup();
@@ -88,16 +93,14 @@ function apiCall(endpoint, params = {}, method = 'GET', body = null) {
             }
         };
         
-        // Create script tag
         const script = document.createElement('script');
         script.src = url;
         script.onerror = function() {
             clearTimeout(timeout);
             cleanup();
-            reject(new Error('Failed to load script'));
+            reject(new Error('Failed to connect to server'));
         };
         
-        // Cleanup function
         function cleanup() {
             delete window[callbackName];
             if (script.parentNode) {
@@ -105,84 +108,16 @@ function apiCall(endpoint, params = {}, method = 'GET', body = null) {
             }
         }
         
-        // Add script to page
         document.head.appendChild(script);
-    });
-}
-
-// Fetch using hidden iframe
-function fetchViaIframe(url) {
-    return new Promise((resolve, reject) => {
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.style.position = 'absolute';
-        iframe.style.width = '0';
-        iframe.style.height = '0';
-        iframe.style.border = 'none';
-        
-        let timeoutId;
-        
-        const cleanup = () => {
-            clearTimeout(timeoutId);
-            if (iframe.parentNode) {
-                document.body.removeChild(iframe);
-            }
-        };
-        
-        iframe.onload = function() {
-            try {
-                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-                const content = iframeDoc.body.textContent || iframeDoc.body.innerText;
-                
-                console.log('Raw response:', content);
-                
-                if (!content || content.trim() === '') {
-                    cleanup();
-                    reject(new Error('Empty response from server'));
-                    return;
-                }
-                
-                const data = JSON.parse(content);
-                cleanup();
-                
-                if (data.error) {
-                    reject(new Error(data.error));
-                } else {
-                    resolve(data);
-                }
-            } catch (error) {
-                cleanup();
-                console.error('Parse error:', error);
-                reject(new Error('Failed to parse response: ' + error.message));
-            }
-        };
-        
-        iframe.onerror = function(e) {
-            cleanup();
-            console.error('Iframe error:', e);
-            reject(new Error('Failed to load data from server'));
-        };
-        
-        // Set timeout
-        timeoutId = setTimeout(() => {
-            cleanup();
-            reject(new Error('Request timeout'));
-        }, 30000); // 30 second timeout
-        
-        iframe.src = url;
-        document.body.appendChild(iframe);
     });
 }
 
 async function loadReviewers() {
     try {
-        console.log('Loading reviewers...');
         const data = await apiCall('getReviewers');
-        console.log('Reviewers loaded:', data);
-        
         const select = document.getElementById('reviewerSelect');
-        
         select.innerHTML = '<option value="">-- Select your name --</option>';
+        
         data.reviewers.forEach(reviewer => {
             const option = document.createElement('option');
             option.value = reviewer;
@@ -191,16 +126,16 @@ async function loadReviewers() {
         });
     } catch (error) {
         console.error('Failed to load reviewers:', error);
-        showError('loginError', 'Failed to load reviewers: ' + error.message);
+        alert('Failed to load reviewers. Please refresh the page and try again.\n\nError: ' + error.message);
     }
 }
 
 async function handleLogin() {
     const reviewer = document.getElementById('reviewerSelect').value;
-    const role = document.querySelector('input[name="role"]:checked').value;
+    const role = document.querySelector('input[name="role"]:checked')?.value;
     
-    if (!reviewer) {
-        showError('loginError', 'Please select your name');
+    if (!reviewer || !role) {
+        alert('Please select both your name and role');
         return;
     }
     
@@ -210,81 +145,119 @@ async function handleLogin() {
     localStorage.setItem('reviewer', reviewer);
     localStorage.setItem('role', role);
     
-    document.getElementById('reviewerInfo').textContent = `${reviewer} (${role})`;
-    document.getElementById('summaryReviewerInfo').textContent = `${reviewer} (${role})`;
+    showLoading('Loading your assigned articles...');
     
-    showPage('reviewPage');
-    await loadArticles();
-}
-
-async function loadArticles() {
     try {
-        const data = await apiCall('getArticles', {
-            reviewer: state.reviewer,
-            role: state.role
-        });
-        
+        const data = await apiCall('getArticles', { reviewer, role });
         state.articles = data.articles;
         state.currentIndex = 0;
+        state.reviewHistory = [];
+        
+        hideLoading();
         
         if (state.articles.length === 0) {
-            showNoArticles();
+            showPage('reviewPage');
+            document.getElementById('articleContent').style.display = 'none';
+            document.getElementById('noArticles').style.display = 'block';
         } else {
+            showPage('reviewPage');
             displayCurrentArticle();
         }
+        
+        updateReviewerInfo();
     } catch (error) {
-        showError('decisionError', 'Failed to load articles: ' + error.message);
+        hideLoading();
+        console.error('Failed to load articles:', error);
+        alert('Failed to load articles. Please try again.\n\nError: ' + error.message);
     }
 }
 
 function displayCurrentArticle() {
-    if (state.currentIndex >= state.articles.length) {
-        showNoArticles();
+    const article = state.articles[state.currentIndex];
+    
+    if (!article) {
+        document.getElementById('articleContent').style.display = 'none';
+        document.getElementById('noArticles').style.display = 'block';
         return;
     }
-    
-    const article = state.articles[state.currentIndex];
     
     document.getElementById('loadingArticle').style.display = 'none';
     document.getElementById('noArticles').style.display = 'none';
     document.getElementById('articleContent').style.display = 'block';
     
-    const progress = (state.currentIndex / state.articles.length) * 100;
-    document.getElementById('progressFill').style.width = `${progress}%`;
-    document.getElementById('progressText').textContent = `Article ${state.currentIndex + 1} of ${state.articles.length}`;
+    // Display row information with link
+    document.getElementById('articleTitle').innerHTML = `
+        ${article.title}
+        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+            <strong>Sheet Row ${article.rowNumber}</strong> 
+            <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none; margin-left: 0.5rem;">
+                📊 View in Google Sheet ↗
+            </a>
+        </div>
+    `;
     
-    document.getElementById('articleTitle').textContent = article.title;
-    document.getElementById('articleAuthors').textContent = article.author || 'N/A';
+    document.getElementById('articleAuthors').textContent = article.author || 'Unknown';
     document.getElementById('articleYear').textContent = article.year || 'N/A';
     document.getElementById('articleSource').textContent = article.source || 'N/A';
-    document.getElementById('articlePublication').textContent = article.publicationTitle || 'N/A';
+    document.getElementById('articlePublication').textContent = article.publication || 'N/A';
     document.getElementById('articleType').textContent = article.publicationType || 'N/A';
-    document.getElementById('articleDOI').textContent = article.doi || 'N/A';
-    document.getElementById('articleAbstract').textContent = article.abstract || 'No abstract available';
     
-    const linkBtn = document.getElementById('articleLink');
-    if (article.url) {
-        linkBtn.href = article.url;
-        linkBtn.style.display = 'inline-flex';
+    const doiElement = document.getElementById('articleDoi');
+    if (article.doi) {
+        doiElement.innerHTML = `<a href="https://doi.org/${article.doi}" target="_blank">${article.doi}</a>`;
     } else {
-        linkBtn.style.display = 'none';
+        doiElement.textContent = 'N/A';
     }
     
-    document.querySelectorAll('input[name="decision"]').forEach(radio => radio.checked = false);
-    document.getElementById('reasonSection').style.display = 'none';
+    const urlElement = document.getElementById('articleUrl');
+    if (article.url) {
+        urlElement.innerHTML = `<a href="${article.url}" target="_blank" class="btn btn-secondary btn-sm">🔗 Read Full Text</a>`;
+    } else {
+        urlElement.innerHTML = '<span style="color: var(--text-secondary);">No URL available</span>';
+    }
+    
+    document.getElementById('articleAbstract').textContent = article.abstract || 'No abstract available';
+    
+    document.querySelectorAll('input[name="decision"]').forEach(radio => {
+        radio.checked = false;
+    });
+    document.getElementById('reasonGroup').style.display = 'none';
     document.getElementById('additionalNotes').value = '';
+    
+    updateProgress();
+    updateNavigationButtons();
+}
+
+function updateProgress() {
+    const total = state.articles.length;
+    const completed = state.currentIndex;
+    const percentage = total > 0 ? (completed / total) * 100 : 0;
+    
+    document.getElementById('progressFill').style.width = `${percentage}%`;
+    document.getElementById('progressText').textContent = 
+        `Article ${completed + 1} of ${total} (${Math.round(percentage)}% complete)`;
+}
+
+function updateNavigationButtons() {
     document.getElementById('previousBtn').disabled = state.reviewHistory.length === 0;
 }
 
-function handleDecisionChange(event) {
-    const decision = event.target.value;
-    const reasonSection = document.getElementById('reasonSection');
+function updateReviewerInfo() {
+    document.getElementById('reviewerInfo').textContent = 
+        `${state.reviewer} (${state.role === 'C1' ? 'First' : 'Second'} Reviewer)`;
+}
+
+function handleDecisionChange(e) {
+    const decision = e.target.value;
+    const reasonGroup = document.getElementById('reasonGroup');
+    const reasonLabel = document.getElementById('reasonLabel');
     const reasonSelect = document.getElementById('reasonSelect');
     
-    reasonSection.style.display = 'block';
-    
-    const reasons = decision === '1' ? REASONS.include : REASONS.exclude;
+    reasonGroup.style.display = 'block';
     reasonSelect.innerHTML = '<option value="">-- Select reason --</option>';
+    
+    const reasons = decision === '0' ? REASONS.exclude : REASONS.include;
+    reasonLabel.textContent = decision === '0' ? 'Reason for exclusion:' : 'Reason for inclusion:';
     
     reasons.forEach(reason => {
         const option = document.createElement('option');
@@ -295,60 +268,63 @@ function handleDecisionChange(event) {
 }
 
 async function handleSaveNext() {
-    const decision = document.querySelector('input[name="decision"]:checked');
+    const decision = document.querySelector('input[name="decision"]:checked')?.value;
     const reason = document.getElementById('reasonSelect').value;
-    const additionalNotes = document.getElementById('additionalNotes').value.trim();
+    const notes = document.getElementById('additionalNotes').value.trim();
     
     if (!decision) {
-        showError('decisionError', 'Please select a decision');
+        alert('Please select Include or Exclude');
         return;
     }
     
-    let finalNote = reason || '';
-    if (additionalNotes) {
-        finalNote = finalNote ? `${finalNote}; ${additionalNotes}` : additionalNotes;
+    if (!reason) {
+        alert('Please select a reason');
+        return;
     }
     
-    const saveBtn = document.getElementById('saveNextBtn');
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving...';
+    const article = state.articles[state.currentIndex];
+    const note = reason === 'other' ? notes : reason;
+    
+    if (reason === 'other' && !notes) {
+        alert('Please provide additional notes for "other"');
+        return;
+    }
+    
+    showLoading('Saving your decision...');
     
     try {
-        const currentArticle = state.articles[state.currentIndex];
         await apiCall('submitDecision', {}, 'POST', {
-            rowIndex: currentArticle.rowIndex,
+            rowIndex: article.rowIndex,
             reviewer: state.reviewer,
             role: state.role,
-            decision: parseInt(decision.value),
-            note: finalNote
+            decision: parseInt(decision),
+            note: note
         });
         
-        state.reviewHistory.push(state.currentIndex);
-        state.articles.splice(state.currentIndex, 1);
+        hideLoading();
         
-        if (state.articles.length === 0) {
-            showNoArticles();
+        state.reviewHistory.push(state.currentIndex);
+        state.currentIndex++;
+        
+        if (state.currentIndex >= state.articles.length) {
+            document.getElementById('articleContent').style.display = 'none';
+            document.getElementById('noArticles').style.display = 'block';
         } else {
-            if (state.currentIndex >= state.articles.length) {
-                state.currentIndex = state.articles.length - 1;
-            }
             displayCurrentArticle();
         }
     } catch (error) {
-        showError('decisionError', 'Failed to save decision: ' + error.message);
-    } finally {
-        saveBtn.disabled = false;
-        saveBtn.textContent = 'Save & Next →';
+        hideLoading();
+        console.error('Failed to save decision:', error);
+        alert('Failed to save decision. Please try again.\n\nError: ' + error.message);
     }
 }
 
 function handleSkip() {
     if (state.currentIndex < state.articles.length - 1) {
+        state.reviewHistory.push(state.currentIndex);
         state.currentIndex++;
-    } else {
-        state.currentIndex = 0;
+        displayCurrentArticle();
     }
-    displayCurrentArticle();
 }
 
 function handlePrevious() {
@@ -359,52 +335,34 @@ function handlePrevious() {
 }
 
 function showPage(pageId) {
-    document.querySelectorAll('.page').forEach(page => page.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(page => {
+        page.classList.remove('active');
+    });
     document.getElementById(pageId).classList.add('active');
-}
-
-function showError(elementId, message) {
-    const errorElement = document.getElementById(elementId);
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-    setTimeout(() => errorElement.style.display = 'none', 5000);
-}
-
-function showNoArticles() {
-    document.getElementById('loadingArticle').style.display = 'none';
-    document.getElementById('articleContent').style.display = 'none';
-    document.getElementById('noArticles').style.display = 'block';
-    document.getElementById('progressFill').style.width = '100%';
-    document.getElementById('progressText').textContent = 'All articles reviewed!';
-}
-
-function showReviewPage() {
-    showPage('reviewPage');
-    if (state.articles.length > 0) {
-        displayCurrentArticle();
-    }
 }
 
 async function showSummaryPage() {
     showPage('summaryPage');
+    showLoading('Loading your summary...');
     await loadSummary();
+    hideLoading();
+}
+
+function showReviewPage() {
+    showPage('reviewPage');
 }
 
 async function loadSummary() {
     try {
-        const data = await apiCall('getSummary', {
-            reviewer: state.reviewer,
-            role: state.role
+        const data = await apiCall('getSummary', { 
+            reviewer: state.reviewer, 
+            role: state.role 
         });
         
-        const statsGrid = document.getElementById('summaryStats');
-        statsGrid.innerHTML = `
-            <div class="stat-card"><span class="stat-value">${data.stats.total}</span><span class="stat-label">Total Assigned</span></div>
-            <div class="stat-card"><span class="stat-value">${data.stats.completed}</span><span class="stat-label">Reviewed</span></div>
-            <div class="stat-card"><span class="stat-value">${data.stats.remaining}</span><span class="stat-label">Remaining</span></div>
-            <div class="stat-card"><span class="stat-value">${data.stats.included}</span><span class="stat-label">Included</span></div>
-            <div class="stat-card"><span class="stat-value">${data.stats.excluded}</span><span class="stat-label">Excluded</span></div>
-        `;
+        document.getElementById('totalReviewed').textContent = data.summary.reviewed;
+        document.getElementById('totalIncluded').textContent = data.summary.included;
+        document.getElementById('totalExcluded').textContent = data.summary.excluded;
+        document.getElementById('totalPending').textContent = data.summary.pending;
         
         const reviewedList = document.getElementById('reviewedList');
         if (data.reviewed.length === 0) {
@@ -416,9 +374,11 @@ async function loadSummary() {
                     <div class="article-item-meta">
                         <span>${article.author || 'Unknown Author'}</span>
                         <span>${article.year || 'N/A'}</span>
+                        <span style="color: var(--text-secondary);">Row ${article.rowNumber}</span>
+                        <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none;">📊 Sheet ↗</a>
                     </div>
                     <span class="article-item-decision ${article.decision === 1 ? 'included' : 'excluded'}">
-                        ${article.decision === 1 ? 'Included' : 'Excluded'}
+                        ${article.decision === 1 ? '✓ Included' : '✗ Excluded'}
                     </span>
                     ${article.note ? `<div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">${article.note}</div>` : ''}
                 </div>
@@ -437,6 +397,7 @@ async function loadSummary() {
                     <div class="article-item-meta">
                         <span>${article.author || 'Unknown Author'}</span>
                         <span>${article.year || 'N/A'}</span>
+                        <span style="color: var(--text-secondary);">Row ${article.rowNumber}</span>
                     </div>
                 </div>
             `).join('');
