@@ -1,4 +1,4 @@
-// app.js - UPDATED WITH YOUR API URL
+// app.js - UPDATED with iframe method to bypass CORS
 const API_URL = 'https://script.google.com/macros/s/AKfycbxcJ_7kwV7IYqB7Q_eaeAHGv6l36d3R5q-QM2OmopGgKhgwYbSOpjZvSZaJOJksgskZ9Q/exec';
 
 const state = {
@@ -46,39 +46,108 @@ function setupEventListeners() {
     document.getElementById('logoutFromSummaryBtn').addEventListener('click', handleLogout);
 }
 
+// NEW: Fetch data using iframe to bypass CORS
 async function apiCall(endpoint, params = {}, method = 'GET', body = null) {
     try {
         let url = `${API_URL}?action=${endpoint}`;
         
-        if (method === 'GET') {
-            Object.keys(params).forEach(key => {
-                url += `&${key}=${encodeURIComponent(params[key])}`;
-            });
+        // Add GET parameters
+        Object.keys(params).forEach(key => {
+            url += `&${key}=${encodeURIComponent(params[key])}`;
+        });
+        
+        if (method === 'POST') {
+            // For POST, add body as URL params
+            if (body) {
+                Object.keys(body).forEach(key => {
+                    url += `&${key}=${encodeURIComponent(
+                        typeof body[key] === 'object' ? JSON.stringify(body[key]) : body[key]
+                    )}`;
+                });
+            }
         }
         
-        const options = {
-            method: method,
-            headers: {'Content-Type': 'application/json'}
-        };
+        console.log('Calling API:', url);
         
-        if (method === 'POST' && body) {
-            options.body = JSON.stringify(body);
-        }
+        // Use iframe method to bypass CORS
+        return await fetchViaIframe(url);
         
-        const response = await fetch(url, options);
-        const data = await response.json();
-        
-        if (data.error) throw new Error(data.error);
-        return data;
     } catch (error) {
         console.error('API Error:', error);
         throw error;
     }
 }
 
+// Fetch using hidden iframe
+function fetchViaIframe(url) {
+    return new Promise((resolve, reject) => {
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.style.position = 'absolute';
+        iframe.style.width = '0';
+        iframe.style.height = '0';
+        iframe.style.border = 'none';
+        
+        let timeoutId;
+        
+        const cleanup = () => {
+            clearTimeout(timeoutId);
+            if (iframe.parentNode) {
+                document.body.removeChild(iframe);
+            }
+        };
+        
+        iframe.onload = function() {
+            try {
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                const content = iframeDoc.body.textContent || iframeDoc.body.innerText;
+                
+                console.log('Raw response:', content);
+                
+                if (!content || content.trim() === '') {
+                    cleanup();
+                    reject(new Error('Empty response from server'));
+                    return;
+                }
+                
+                const data = JSON.parse(content);
+                cleanup();
+                
+                if (data.error) {
+                    reject(new Error(data.error));
+                } else {
+                    resolve(data);
+                }
+            } catch (error) {
+                cleanup();
+                console.error('Parse error:', error);
+                reject(new Error('Failed to parse response: ' + error.message));
+            }
+        };
+        
+        iframe.onerror = function(e) {
+            cleanup();
+            console.error('Iframe error:', e);
+            reject(new Error('Failed to load data from server'));
+        };
+        
+        // Set timeout
+        timeoutId = setTimeout(() => {
+            cleanup();
+            reject(new Error('Request timeout'));
+        }, 30000); // 30 second timeout
+        
+        iframe.src = url;
+        document.body.appendChild(iframe);
+    });
+}
+
 async function loadReviewers() {
     try {
+        console.log('Loading reviewers...');
         const data = await apiCall('getReviewers');
+        console.log('Reviewers loaded:', data);
+        
         const select = document.getElementById('reviewerSelect');
         
         select.innerHTML = '<option value="">-- Select your name --</option>';
@@ -89,7 +158,8 @@ async function loadReviewers() {
             select.appendChild(option);
         });
     } catch (error) {
-        showError('loginError', 'Failed to load reviewers');
+        console.error('Failed to load reviewers:', error);
+        showError('loginError', 'Failed to load reviewers: ' + error.message);
     }
 }
 
@@ -131,7 +201,7 @@ async function loadArticles() {
             displayCurrentArticle();
         }
     } catch (error) {
-        showError('decisionError', 'Failed to load articles');
+        showError('decisionError', 'Failed to load articles: ' + error.message);
     }
 }
 
@@ -233,7 +303,7 @@ async function handleSaveNext() {
             displayCurrentArticle();
         }
     } catch (error) {
-        showError('decisionError', 'Failed to save decision');
+        showError('decisionError', 'Failed to save decision: ' + error.message);
     } finally {
         saveBtn.disabled = false;
         saveBtn.textContent = 'Save & Next →';
