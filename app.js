@@ -239,7 +239,20 @@ function updateProgress() {
 }
 
 function updateNavigationButtons() {
-    document.getElementById('previousBtn').disabled = state.reviewHistory.length === 0;
+    const previousBtn = document.getElementById('previousBtn');
+    previousBtn.disabled = state.reviewHistory.length === 0;
+    
+    // Visual feedback
+    if (state.reviewHistory.length > 0) {
+        previousBtn.style.opacity = '1';
+        previousBtn.style.cursor = 'pointer';
+    } else {
+        previousBtn.style.opacity = '0.5';
+        previousBtn.style.cursor = 'not-allowed';
+    }
+    
+    console.log('History length:', state.reviewHistory.length);
+    console.log('Current index:', state.currentIndex);
 }
 
 function updateReviewerInfo() {
@@ -303,12 +316,14 @@ async function handleSaveNext() {
         
         hideLoading();
         
+        // Add current index to history BEFORE incrementing
         state.reviewHistory.push(state.currentIndex);
         state.currentIndex++;
         
         if (state.currentIndex >= state.articles.length) {
             document.getElementById('articleContent').style.display = 'none';
             document.getElementById('noArticles').style.display = 'block';
+            updateNavigationButtons();
         } else {
             displayCurrentArticle();
         }
@@ -324,6 +339,8 @@ function handleSkip() {
         state.reviewHistory.push(state.currentIndex);
         state.currentIndex++;
         displayCurrentArticle();
+    } else {
+        alert('This is the last article. You cannot skip further.');
     }
 }
 
@@ -359,21 +376,26 @@ async function loadSummary() {
             role: state.role 
         });
         
-        document.getElementById('totalReviewed').textContent = data.summary.reviewed;
-        document.getElementById('totalIncluded').textContent = data.summary.included;
-        document.getElementById('totalExcluded').textContent = data.summary.excluded;
-        document.getElementById('totalPending').textContent = data.summary.pending;
+        // Check if data and summary exist
+        if (!data || !data.summary) {
+            throw new Error('Invalid summary data received');
+        }
+        
+        document.getElementById('totalReviewed').textContent = data.summary.reviewed || 0;
+        document.getElementById('totalIncluded').textContent = data.summary.included || 0;
+        document.getElementById('totalExcluded').textContent = data.summary.excluded || 0;
+        document.getElementById('totalPending').textContent = data.summary.pending || 0;
         
         const reviewedList = document.getElementById('reviewedList');
-        if (data.reviewed.length === 0) {
+        if (!data.reviewed || data.reviewed.length === 0) {
             reviewedList.innerHTML = '<p style="color: var(--text-secondary); padding: 1rem;">No articles reviewed yet.</p>';
         } else {
             reviewedList.innerHTML = data.reviewed.map(article => `
                 <div class="article-item">
                     <div class="article-item-title">${article.title}</div>
                     <div class="article-item-meta">
-                        <span>${article.author || 'Unknown Author'}</span>
-                        <span>${article.year || 'N/A'}</span>
+                        <span>${article.author}</span>
+                        <span>${article.year}</span>
                         <span style="color: var(--text-secondary);">Row ${article.rowNumber}</span>
                         <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none;">📊 Sheet ↗</a>
                     </div>
@@ -387,7 +409,7 @@ async function loadSummary() {
         
         const pendingList = document.getElementById('pendingList');
         const pendingCard = document.getElementById('pendingCard');
-        if (data.pending.length === 0) {
+        if (!data.pending || data.pending.length === 0) {
             pendingCard.style.display = 'none';
         } else {
             pendingCard.style.display = 'block';
@@ -395,8 +417,8 @@ async function loadSummary() {
                 <div class="article-item">
                     <div class="article-item-title">${article.title}</div>
                     <div class="article-item-meta">
-                        <span>${article.author || 'Unknown Author'}</span>
-                        <span>${article.year || 'N/A'}</span>
+                        <span>${article.author}</span>
+                        <span>${article.year}</span>
                         <span style="color: var(--text-secondary);">Row ${article.rowNumber}</span>
                     </div>
                 </div>
@@ -404,7 +426,7 @@ async function loadSummary() {
         }
     } catch (error) {
         console.error('Failed to load summary:', error);
-        alert('Failed to load summary: ' + error.message);
+        alert('Failed to load summary: ' + error.message + '\n\nPlease try again or contact support.');
     }
 }
 
