@@ -181,48 +181,84 @@ function displayCurrentArticle() {
         return;
     }
     
+    console.log('Displaying article:', article); // Debug logging
+    
     document.getElementById('loadingArticle').style.display = 'none';
     document.getElementById('noArticles').style.display = 'none';
     document.getElementById('articleContent').style.display = 'block';
     
-    // Display row information with link
-    document.getElementById('articleTitle').innerHTML = `
-        ${article.title}
-        <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
-            <strong>Sheet Row ${article.rowNumber}</strong> 
-            <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none; margin-left: 0.5rem;">
-                📊 View in Google Sheet ↗
-            </a>
-        </div>
-    `;
+    // Display row information with link - with null check
+    const titleElement = document.getElementById('articleTitle');
+    if (titleElement) {
+        titleElement.innerHTML = `
+            ${article.title || 'Untitled'}
+            <div style="font-size: 0.875rem; color: var(--text-secondary); margin-top: 0.5rem;">
+                <strong>Sheet Row ${article.rowNumber}</strong> 
+                <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none; margin-left: 0.5rem;">
+                    📊 View in Google Sheet ↗
+                </a>
+            </div>
+        `;
+    }
     
-    document.getElementById('articleAuthors').textContent = article.author || 'Unknown';
-    document.getElementById('articleYear').textContent = article.year || 'N/A';
-    document.getElementById('articleSource').textContent = article.source || 'N/A';
-    document.getElementById('articlePublication').textContent = article.publication || 'N/A';
-    document.getElementById('articleType').textContent = article.publicationType || 'N/A';
+    // Safely set text content for metadata
+    const setTextContent = (id, value, defaultValue = 'N/A') => {
+        const element = document.getElementById(id);
+        if (element) {
+            element.textContent = value || defaultValue;
+        } else {
+            console.warn(`Element not found: ${id}`);
+        }
+    };
     
+    setTextContent('articleAuthors', article.author, 'Unknown');
+    setTextContent('articleYear', article.year, 'N/A');
+    setTextContent('articleSource', article.source, 'N/A');
+    setTextContent('articlePublication', article.publication, 'N/A');
+    setTextContent('articleType', article.publicationType, 'N/A');
+    
+    // Handle DOI with link
     const doiElement = document.getElementById('articleDoi');
-    if (article.doi) {
-        doiElement.innerHTML = `<a href="https://doi.org/${article.doi}" target="_blank">${article.doi}</a>`;
-    } else {
-        doiElement.textContent = 'N/A';
+    if (doiElement) {
+        if (article.doi) {
+            doiElement.innerHTML = `<a href="https://doi.org/${article.doi}" target="_blank">${article.doi}</a>`;
+        } else {
+            doiElement.textContent = 'N/A';
+        }
     }
     
+    // Handle URL with link
     const urlElement = document.getElementById('articleUrl');
-    if (article.url) {
-        urlElement.innerHTML = `<a href="${article.url}" target="_blank" class="btn btn-secondary btn-sm">🔗 Read Full Text</a>`;
-    } else {
-        urlElement.innerHTML = '<span style="color: var(--text-secondary);">No URL available</span>';
+    if (urlElement) {
+        if (article.url) {
+            urlElement.innerHTML = `<a href="${article.url}" target="_blank" class="btn btn-secondary btn-sm">🔗 Read Full Text</a>`;
+        } else {
+            urlElement.innerHTML = '<span style="color: var(--text-secondary);">No URL available</span>';
+        }
     }
     
-    document.getElementById('articleAbstract').textContent = article.abstract || 'No abstract available';
+    // Handle abstract - THIS IS KEY FOR YOUR ISSUE
+    const abstractElement = document.getElementById('articleAbstract');
+    if (abstractElement) {
+        abstractElement.textContent = article.abstract || 'No abstract available';
+    } else {
+        console.error('Abstract element not found!');
+    }
     
+    // Reset form
     document.querySelectorAll('input[name="decision"]').forEach(radio => {
         radio.checked = false;
     });
-    document.getElementById('reasonGroup').style.display = 'none';
-    document.getElementById('additionalNotes').value = '';
+    
+    const reasonGroup = document.getElementById('reasonGroup');
+    if (reasonGroup) {
+        reasonGroup.style.display = 'none';
+    }
+    
+    const notesElement = document.getElementById('additionalNotes');
+    if (notesElement) {
+        notesElement.value = '';
+    }
     
     updateProgress();
     updateNavigationButtons();
@@ -316,9 +352,16 @@ async function handleSaveNext() {
         
         hideLoading();
         
+        // Debug logging
+        console.log('Before save - Current index:', state.currentIndex);
+        console.log('Before save - History:', state.reviewHistory);
+        
         // Add current index to history BEFORE incrementing
         state.reviewHistory.push(state.currentIndex);
         state.currentIndex++;
+        
+        console.log('After save - Current index:', state.currentIndex);
+        console.log('After save - History:', state.reviewHistory);
         
         if (state.currentIndex >= state.articles.length) {
             document.getElementById('articleContent').style.display = 'none';
