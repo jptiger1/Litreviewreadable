@@ -10,8 +10,7 @@ const state = {
 };
 
 const REASONS = {
-    exclude: ['not HAI', 'not perceived transparency', 'not relevant', 'duplicate', 'other'],
-    include: ['Good Article', 'full text coded', 'other']
+    exclude: ['not HAI', 'not perceived transparency', 'not English', 'not peer-reviewed', 'other']
 };
 
 // Loading overlay functions
@@ -302,42 +301,54 @@ function handleDecisionChange(e) {
     const reasonLabel = document.getElementById('reasonLabel');
     const reasonSelect = document.getElementById('reasonSelect');
     
-    reasonGroup.style.display = 'block';
-    reasonSelect.innerHTML = '<option value="">-- Select reason --</option>';
-    
-    const reasons = decision === '0' ? REASONS.exclude : REASONS.include;
-    reasonLabel.textContent = decision === '0' ? 'Reason for exclusion:' : 'Reason for inclusion:';
-    
-    reasons.forEach(reason => {
-        const option = document.createElement('option');
-        option.value = reason;
-        option.textContent = reason;
-        reasonSelect.appendChild(option);
-    });
+    if (decision === '0') {
+        // Only show reasons for exclusions
+        reasonGroup.style.display = 'block';
+        reasonSelect.innerHTML = '<option value="">-- Select reason --</option>';
+        reasonLabel.textContent = 'Reason for exclusion:';
+        
+        REASONS.exclude.forEach(reason => {
+            const option = document.createElement('option');
+            option.value = reason;
+            option.textContent = reason;
+            reasonSelect.appendChild(option);
+        });
+    } else {
+        // Hide reason group for inclusions
+        reasonGroup.style.display = 'none';
+    }
 }
 
 async function handleSaveNext() {
     const decision = document.querySelector('input[name="decision"]:checked')?.value;
-    const reason = document.getElementById('reasonSelect').value;
-    const notes = document.getElementById('additionalNotes').value.trim();
     
     if (!decision) {
         alert('Please select Include or Exclude');
         return;
     }
     
-    if (!reason) {
-        alert('Please select a reason');
-        return;
+    let note = '';
+    
+    if (decision === '0') {
+        // For exclusions, reason is required
+        const reason = document.getElementById('reasonSelect').value;
+        const notes = document.getElementById('additionalNotes').value.trim();
+        
+        if (!reason) {
+            alert('Please select a reason for exclusion');
+            return;
+        }
+        
+        note = reason === 'other' ? notes : reason;
+        
+        if (reason === 'other' && !notes) {
+            alert('Please provide additional notes for "other"');
+            return;
+        }
     }
+    // If decision === '1' (Include), note stays empty
     
     const article = state.articles[state.currentIndex];
-    const note = reason === 'other' ? notes : reason;
-    
-    if (reason === 'other' && !notes) {
-        alert('Please provide additional notes for "other"');
-        return;
-    }
     
     showLoading('Saving your decision...');
     
@@ -352,16 +363,9 @@ async function handleSaveNext() {
         
         hideLoading();
         
-        // Debug logging
-        console.log('Before save - Current index:', state.currentIndex);
-        console.log('Before save - History:', state.reviewHistory);
-        
         // Add current index to history BEFORE incrementing
         state.reviewHistory.push(state.currentIndex);
         state.currentIndex++;
-        
-        console.log('After save - Current index:', state.currentIndex);
-        console.log('After save - History:', state.reviewHistory);
         
         if (state.currentIndex >= state.articles.length) {
             document.getElementById('articleContent').style.display = 'none';
