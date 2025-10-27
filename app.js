@@ -403,6 +403,8 @@ function showPage(pageId) {
 
 async function showSummaryPage() {
     showPage('summaryPage');
+    document.getElementById('summaryReviewerInfo').textContent = 
+        `${state.reviewer} (${state.role === 'C1' ? 'First' : 'Second'} Reviewer)`;
     showLoading('Loading your summary...');
     await loadSummary();
     hideLoading();
