@@ -353,13 +353,16 @@ async function handleSaveNext() {
     showLoading('Saving your decision...');
     
     try {
-        await apiCall('submitDecision', {}, 'POST', {
-            rowIndex: article.rowIndex,
-            reviewer: state.reviewer,
-            role: state.role,
-            decision: parseInt(decision),
-            note: note
-        });
+    const additionalComments = document.getElementById('additionalNotes').value.trim();
+    
+    await apiCall('submitDecision', {}, 'POST', {
+        rowIndex: article.rowIndex,
+        reviewer: state.reviewer,
+        role: state.role,
+        decision: parseInt(decision),
+        note: note,
+        additionalComments: additionalComments
+    });
         
         hideLoading();
         
@@ -440,20 +443,21 @@ async function loadSummary() {
             reviewedList.innerHTML = '<p style="color: var(--text-secondary); padding: 1rem;">No articles reviewed yet.</p>';
         } else {
             reviewedList.innerHTML = data.reviewed.map(article => `
-                <div class="article-item">
-                    <div class="article-item-title">${article.title}</div>
-                    <div class="article-item-meta">
-                        <span>${article.author}</span>
-                        <span>${article.year}</span>
-                        <span style="color: var(--text-secondary);">Row ${article.rowNumber}</span>
-                        <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none;">📊 Sheet ↗</a>
-                    </div>
-                    <span class="article-item-decision ${article.decision === 1 ? 'included' : 'excluded'}">
-                        ${article.decision === 1 ? '✓ Included' : '✗ Excluded'}
-                    </span>
-                    ${article.note ? `<div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);">${article.note}</div>` : ''}
-                </div>
-            `).join('');
+    <div class="article-item">
+        <div class="article-item-title">${article.title}</div>
+        <div class="article-item-meta">
+            <span>${article.author}</span>
+            <span>${article.year}</span>
+            <span style="color: var(--text-secondary);">Row ${article.rowNumber}</span>
+            <a href="${article.sheetUrl}" target="_blank" style="color: var(--primary); text-decoration: none;">📊 Sheet ↗</a>
+        </div>
+        <span class="article-item-decision ${article.decision === 1 ? 'included' : 'excluded'}">
+            ${article.decision === 1 ? '✓ Included' : '✗ Excluded'}
+        </span>
+        ${article.note ? `<div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);"><strong>Reason:</strong> ${article.note}</div>` : ''}
+        ${article.additionalComments ? `<div style="margin-top: 0.5rem; font-size: 0.875rem; color: var(--text-secondary);"><strong>Additional Comments:</strong> ${article.additionalComments}</div>` : ''}
+    </div>
+`).join('');
         }
         
         const pendingList = document.getElementById('pendingList');
