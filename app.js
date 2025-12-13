@@ -1,5 +1,5 @@
 // app.js - Enhanced with loading states and row information
-const API_URL = 'https://script.google.com/macros/s/AKfycbxcJ_7kwV7IYqB7Q_eaeAHGv6l36d3R5q-QM2OmopGgKhgwYbSOpjZvSZaJOJksgskZ9Q/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbzcFr5w1E38kApLoOmyr1k9d7pBdK7Zt9Zt0VKACd6kM1NR8xSKc0x8F6UWuOcsK74AUg/exe';
 
 const state = {
     reviewer: null,
