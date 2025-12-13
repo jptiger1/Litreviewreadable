@@ -10,7 +10,7 @@ const state = {
 };
 
 const REASONS = {
-    exclude: ['not HAI', 'not perceived transparency', 'not English', 'not peer-reviewed', 'other']
+    exclude: ['duplicate','not HAI', 'not perceived transparency', 'not English', 'not peer-reviewed', 'other']
 };
 
 // Loading overlay functions
@@ -162,7 +162,6 @@ async function handleLogin() {
             showPage('reviewPage');
             displayCurrentArticle();
         }
-        
         updateReviewerInfo();
     } catch (error) {
         hideLoading();
@@ -236,7 +235,7 @@ function displayCurrentArticle() {
         }
     }
     
-    // Handle abstract - THIS IS KEY FOR YOUR ISSUE
+    // Handle abstract 
     const abstractElement = document.getElementById('articleAbstract');
     if (abstractElement) {
         abstractElement.textContent = article.abstract || 'No abstract available';
@@ -244,6 +243,14 @@ function displayCurrentArticle() {
         console.error('Abstract element not found!');
     }
     
+    const duplicateContainer = document.getElementById('duplicateStatusContainer');
+    const duplicateElement = document.getElementById('articleDuplicateStatus');
+    if (article.isDuplicate) {
+        if (duplicateContainer) duplicateContainer.style.display = 'flex';
+        if (duplicateElement) duplicateElement.innerHTML = '<span class="duplicate-badge">⚠️ DUPLICATE</span>';
+    } else {
+        if (duplicateContainer) duplicateContainer.style.display = 'none';
+    }
     // Reset form
     document.querySelectorAll('input[name="decision"]').forEach(radio => {
         radio.checked = false;
