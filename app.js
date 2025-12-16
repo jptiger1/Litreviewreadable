@@ -171,6 +171,10 @@ async function handleLogin() {
 }
 
 function displayCurrentArticle() {
+
+      // Scroll to top of page
+    window.scrollTo(0, 0);
+    
     const article = state.articles[state.currentIndex];
     
     if (!article) {
